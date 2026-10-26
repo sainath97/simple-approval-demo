@@ -103,7 +103,7 @@ app.MapGet("/api/requests/mine", async (HttpContext http, AppDbContext db,
 
     var rows = await q.OrderByDescending(r => r.CreatedUtc).ThenByDescending(r => r.Id)
         .Take(size + 1)
-        .Select(r => new RequestListItem(r.Id, r.Title, r.Description, r.Amount, r.Status.ToString(),
+        .Select(r => new RequestListItem(r.Id, r.RequesterId, r.Title, r.Description, r.Amount, r.Status.ToString(),
             r.CreatedUtc, r.DecidedBy, r.DecidedAtUtc, Convert.ToBase64String(r.RowVersion)))
         .ToListAsync(ct);
     var more = rows.Count > size;
@@ -113,10 +113,11 @@ app.MapGet("/api/requests/mine", async (HttpContext http, AppDbContext db,
 }).RequireAuthorization();
 
 app.MapGet("/api/manager/requests", async (AppDbContext db, int? pageSize, string? cursor,
-    string? status, CancellationToken ct) =>
+    string? status, HttpContext http, CancellationToken ct) =>
 {
     var size = Math.Clamp(pageSize ?? 20, 1, 100);
-    var q = db.Requests.AsNoTracking();
+    var managerId = http.User.GetUserId();
+    var q = db.Requests.AsNoTracking().Where(r => r.RequesterId != managerId);
     if (Enum.TryParse<RequestStatus>(status, true, out var parsed))
         q = q.Where(r => r.Status == parsed);
     var decoded = CursorCodec.Decode(cursor);
@@ -126,7 +127,7 @@ app.MapGet("/api/manager/requests", async (AppDbContext db, int? pageSize, strin
 
     var rows = await q.OrderByDescending(r => r.CreatedUtc).ThenByDescending(r => r.Id)
         .Take(size + 1)
-        .Select(r => new RequestListItem(r.Id, r.Title, r.Description, r.Amount, r.Status.ToString(),
+        .Select(r => new RequestListItem(r.Id, r.RequesterId, r.Title, r.Description, r.Amount, r.Status.ToString(),
             r.CreatedUtc, r.DecidedBy, r.DecidedAtUtc, Convert.ToBase64String(r.RowVersion)))
         .ToListAsync(ct);
     var more = rows.Count > size;
@@ -184,7 +185,7 @@ app.Run();
 public record DemoTokenRequest(Guid UserId, string DisplayName, string Role);
 public record CreateRequestDto(string Title, string Description, decimal Amount);
 public record DecisionInput(string Decision, string? Comment);
-public record RequestListItem(Guid Id, string Title, string Description, decimal Amount, string Status,
+public record RequestListItem(Guid Id, Guid RequesterId, string Title, string Description, decimal Amount, string Status,
     DateTime CreatedUtc, Guid? DecidedBy, DateTime? DecidedAtUtc, string Version);
 public record PageResponse<T>(IReadOnlyList<T> Items, string? NextCursor);
 public record DecisionDtoResponse(Guid ManagerId, string Decision, string? Comment, DateTime DecidedAtUtc);

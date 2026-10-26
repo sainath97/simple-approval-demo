@@ -30,26 +30,25 @@ import { Role, RequestItem } from './models';
     <div class="error" *ngIf="error()">{{error()}}</div>
 
     <section class="panel" *ngIf="auth.token() as token">
-      <ng-container *ngIf="token.role === 'Employee'; else managerView">
-        <h2>Submit a purchase request</h2>
-        <p class="muted">No editing after submission. Notifications are simulated as local .eml files.</p>
-        <form [formGroup]="form" (ngSubmit)="onSubmit()">
-          <label>Title</label><input formControlName="title" maxlength="160" placeholder="e.g. Laptop replacement">
-          <label>Description</label><textarea formControlName="description" rows="3" maxlength="4000" placeholder="Why is this purchase needed?"></textarea>
-          <label>Amount</label><input type="number" formControlName="amount" min="0.01" step="0.01">
-          <button type="submit" [disabled]="busy() || form.invalid">{{busy() ? 'Submitting…' : 'Submit request'}}</button>
-        </form>
-        <div class="section-heading"><h2>My requests</h2><button class="secondary" (click)="loadMine()">Refresh</button></div>
-        <ng-container *ngTemplateOutlet="table; context: {$implicit: mine()}"></ng-container>
-        <button class="secondary" *ngIf="mineCursor()" (click)="loadMine(mineCursor())">Load more</button>
-      </ng-container>
+      <h2>Submit a purchase request</h2>
+      <p class="muted">No editing after submission. Notifications are simulated as local .eml files.</p>
+      <form [formGroup]="form" (ngSubmit)="onSubmit()">
+        <label>Title</label><input formControlName="title" maxlength="160" placeholder="e.g. Laptop replacement">
+        <label>Description</label><textarea formControlName="description" rows="3" maxlength="4000" placeholder="Why is this purchase needed?"></textarea>
+        <label>Amount</label><input type="number" formControlName="amount" min="0.01" step="0.01">
+        <button type="submit" [disabled]="busy() || form.invalid">{{busy() ? 'Submitting…' : 'Submit request'}}</button>
+      </form>
 
-      <ng-template #managerView>
+      <div class="section-heading"><h2>My requests</h2><button class="secondary" (click)="loadMine()">Refresh</button></div>
+      <ng-container *ngTemplateOutlet="table; context: {$implicit: mine()}"></ng-container>
+      <button class="secondary" *ngIf="mineCursor()" (click)="loadMine(mineCursor())">Load more</button>
+
+      <ng-container *ngIf="token.role === 'Manager'">
         <div class="section-heading"><div><h2>Pending approval queue</h2><p class="muted">Open the app as Manager One and Manager Two in separate browser sessions to test concurrency.</p></div>
           <button class="secondary" (click)="loadQueue()">Refresh</button></div>
         <ng-container *ngTemplateOutlet="table; context: {$implicit: queue()}"></ng-container>
         <button class="secondary" *ngIf="queueCursor()" (click)="loadQueue(queueCursor())">Load more</button>
-      </ng-template>
+      </ng-container>
     </section>
 
     <ng-template #table let-items>
@@ -61,7 +60,7 @@ import { Role, RequestItem } from './models';
           <div class="meta">Amount: {{r.amount | currency}} · Created: {{r.createdUtc | date:'medium'}}</div>
           <div class="meta" *ngIf="r.decidedBy">Decision by {{r.decidedBy}} at {{r.decidedAtUtc | date:'medium'}}</div>
         </div>
-        <div class="actions" *ngIf="auth.token()?.role==='Manager' && r.status==='Pending'">
+        <div class="actions" *ngIf="auth.token()?.role==='Manager' && r.requesterId !== auth.token()?.userId && r.status==='Pending'">
           <input #comment placeholder="Optional comment">
           <button (click)="decide(r,'Approved',comment.value)">Approve</button>
           <button class="danger" (click)="decide(r,'Rejected',comment.value)">Reject</button>
@@ -102,6 +101,7 @@ export class AppComponent {
       this.idempotencyKey = crypto.randomUUID();
       this.form.reset();
       this.loadMine();
+      if (this.auth.token()?.role === 'Manager') this.loadQueue();
     });
   }
   private idempotencyKey = crypto.randomUUID();
@@ -110,7 +110,12 @@ export class AppComponent {
     const role: Role = value === 'Employee' ? 'Employee' : 'Manager';
     const second = value === 'Manager2';
     this.auth.login(role, second).subscribe({
-      next: () => { this.message.set('Signed in for demo.'); this.error.set(''); role === 'Employee' ? this.loadMine() : this.loadQueue(); },
+      next: () => {
+        this.message.set('Signed in for demo.'); this.error.set('');
+        this.mine.set([]); this.queue.set([]); this.mineCursor.set(null); this.queueCursor.set(null);
+        this.loadMine();
+        if (role === 'Manager') this.loadQueue();
+      },
       error: () => this.error.set('Could not obtain demo token. Is the API running?')
     });
   }

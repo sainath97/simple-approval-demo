@@ -5,7 +5,7 @@ A runnable demo scaffold for the Case Study 1 scope:
 - ASP.NET Core 8 Web API
 - SQL Server via Docker Compose
 - JWT bearer authentication with Employee / Manager roles
-- Request submission with idempotency keys
+- Employee and manager request submission with idempotency keys; managers cannot approve their own requests
 - First-committed approval/rejection wins using SQL Server `rowversion` + conditional update
 - Decision audit history
 - Transactional outbox + background worker writing fake `.eml` notifications to a local folder
@@ -68,11 +68,11 @@ Open `http://localhost:4200`. Use the demo login dropdown to select Employee or 
 
 ## 4. Demo walkthrough
 
-1. Log in as Employee and submit a request.
+1. Log in as Employee or Manager and submit a request.
 2. The request appears as Pending. The API commits the request and outbox record in one transaction.
 3. Check `./demo-notifications` for a generated `.eml` file. The worker creates it asynchronously.
-4. Log in as Manager and open the pending queue.
-5. Open the same request in two browser windows as two different managers. Approve/reject from both quickly. Only one decision commits; the other receives a conflict and refreshes.
+4. Log in as Manager and open the pending queue. Managers can submit requests too; their own requests appear under My requests and are excluded from their approval queue.
+5. Open another manager's request in two browser windows as two different managers. Approve/reject from both quickly. Only one decision commits; the other receives a conflict and refreshes. A manager cannot approve or reject their own request.
 6. Try rapid double-clicking Submit. The UI disables the button and uses `exhaustMap`; the API also uses an idempotency key.
 7. Use page size and status filters to inspect the server-paginated lists.
 
