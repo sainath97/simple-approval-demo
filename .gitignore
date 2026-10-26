@@ -1,0 +1,23 @@
+# .NET
+**/bin/
+**/obj/
+*.user
+*.suo
+
+# Node.js / Angular
+**/node_modules/
+**/dist/
+**/.angular/
+
+# Local demo output and environment files
+/demo-notifications/
+.env
+.env.*
+!.env.example
+
+# IDE and operating system
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
